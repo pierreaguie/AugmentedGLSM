@@ -35,3 +35,8 @@ wget https://www.openslr.org/resources/12/test-clean.tar.gz
 tar -xzvf train-clean-100.tar.gz
 tar -xzvf test-clean.tar.gz
 ```
+
+
+## To load textlesslib's SpeechEncoder:
+
+Modify line 304 of checkpoints_utils.py : in torch.load, add weights_only=False
