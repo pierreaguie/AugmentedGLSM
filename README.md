@@ -14,7 +14,7 @@ To run this repository, you will need Python 3.9, and to install [textlesslib](h
 
 ```
 # Create a dedicated environment
-python -m venv GLSMEnv/ python=3.9
+python3.9 -m venv GLSMEnv/ 
 source GLSMEnv/bin/activate
 
 # Install textlesslib
