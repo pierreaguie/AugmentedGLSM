@@ -30,7 +30,7 @@ def augment_dataset(dataset : Dataset, encoder : SpeechEncoder, augmentation : C
     Args:
         dataset (Dataset): The original dataset.
         encoder (SpeechEncoder): The speech encoder.
-        augmentation (Callable): The audio transformation function.
+        augmentation (Callable[[torch.Tensor], torch.Tensor]): The audio transformation function.
         path (Optional[str]): The path to save the augmented dataset. Defaults to None. 
 
     Returns:

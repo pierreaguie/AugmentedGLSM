@@ -22,22 +22,23 @@ def train_quantizer_epoch(quantizer : Quantizer, dataloader : DataLoader, optimi
         optimizer (Optimizer): The optimizer to use.
 
     Returns:
-        loss: The loss of the epoch.
+        loss_epoch: The loss of the epoch.
     """
 
     quantizer.train()
 
-    loss = 0.
+    loss_epoch = 0.
     
     for i, (x_aug, units) in enumerate(dataloader):
 
         units_aug = quantizer(x_aug)
-        loss += F.ctc_loss(units, units_aug)
+        loss_step = F.ctc_loss(units, units_aug)
         optimizer.zero_grad()
-        loss.backward()
+        loss_step.backward()
         optimizer.step()
+        loss_epoch += loss_step.item()
 
-    return loss
+    return loss_epoch
 
 
 
