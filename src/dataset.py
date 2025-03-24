@@ -10,7 +10,7 @@ from typing import Optional, Callable
 
 
 class AugmentedDataset(Dataset):
-    def __init__(self, units, dense):
+    def __init__(self, dense, units):
         self.units = units
         self.dense = dense
 
@@ -54,7 +54,7 @@ def augment_dataset(dataset : Dataset, encoder : SpeechEncoder, augmentation : C
         z_aug_dense = z_aug['dense']
         dense.append(z_aug_dense)
         
-    augmented_dataset = AugmentedDataset(units, dense)
+    augmented_dataset = AugmentedDataset(dense, units)
 
     if path:
         torch.save(augmented_dataset, path)

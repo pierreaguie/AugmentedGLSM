@@ -3,7 +3,8 @@ from argparse import ArgumentParser
 from textless.data.speech_encoder import SpeechEncoder
 import torch
 from torchaudio.datasets import LIBRISPEECH
-from torchaudio.transforms import Resample, PitchShift, TimeStretch, AddNoise
+from torchaudio.transforms import Resample, PitchShift, AddNoise, TimeStretch
+import torchaudio.functional as F
 
 from dataset import augment_dataset
 
@@ -39,13 +40,13 @@ parser.add_argument("--augmentation",
 parser.add_argument("--augment_parameter",
                     type = float,
                     help = "The parameter for the augmentation function. For pitch_shift, number of semitones.\
-                          For time_stretch, stretch factor. For reverb, wet level from 0 to 1. For noise, noise level (in dB).",
+                          For time_stretch, stretch factor. For reverb, wet level from 0 to 1. For noise, SNR.",
                     default=1)
 
 parser.add_argument("--save_root",
                     type = str,
                     help = "The root directory where the augmented dataset is saved. If None, the dataset is not saved.",
-                    default=None)
+                    default="/Data/AugGLSMDatasets")
 
 args = parser.parse_args()
 
@@ -60,7 +61,7 @@ if __name__ == "__main__":
         n_steps = int(args.augment_parameter)
         augmentation = PitchShift(16000, n_steps).to(device)
     else:
-        raise ValueError("Not implemented yet.")
+        raise ValueError("Invalid augmentation")
 
     if args.save_root:
         save_path = f"{args.save_root}/{args.split}_{args.encoder}_{args.k}_{args.augmentation}_{args.augment_parameter}.pt"

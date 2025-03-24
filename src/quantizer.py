@@ -1,9 +1,13 @@
+import torch
 import torch.nn as nn
+import torch.nn.functional as F
+import pytorch_lightning as pl
+from torchmetrics.text import EditDistance
 
 from typing import List
 
 
-class Quantizer(nn.Module):
+class Quantizer(pl.LightningModule):
 
     def __init__(self, latent_dim : int, hidden_dims : List[int], n_clusters : int):
         super(Quantizer, self).__init__()
@@ -24,10 +28,35 @@ class Quantizer(nn.Module):
         self.layers.append(nn.Linear(hidden_dims[-1], n_clusters))
         self.layers.append(nn.LogSoftmax(dim=-1))
 
+        self.UED = EditDistance()
+
 
     def forward(self, x):
 
         for layer in self.layers:
             x = layer(x)
-
         return x
+    
+
+    def training_step(self, batch, batch_idx):
+        x_aug, units = batch
+        units_aug = self(x_aug)
+        loss = F.ctc_loss(units, units_aug)
+        result = pl.TrainResult(loss)
+        self.log('train_loss', loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
+        return result
+    
+    def validation_step(self, batch, batch_idx):
+        x_aug, units = batch
+        units_aug = self(x_aug)
+        loss = F.ctc_loss(units, units_aug)
+        result = pl.EvalResult(checkpoint_on=loss)
+        self.log('val_loss', loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
+
+        ued = self.UED(units, units_aug)
+        self.log('val_ued', ued, on_step=True, on_epoch=True, prog_bar=True, logger=True)
+        return result
+
+    def configure_optimizers(self):
+        optimizer = torch.optim.Adam(self.parameters(), lr=1e-3)
+        return optimizer
