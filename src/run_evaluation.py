@@ -52,8 +52,12 @@ def get_store_name(dataset_augmented):
         return 'pitched-hard'
     elif dataset_augmented=='test-clean-stretched-hard':
         return 'stretched-hard'
-    elif dataset_augmented=='test-clean-pitch_shift_resample':
-        return 'pitched-shift-resample'   
+    elif dataset_augmented=='test-clean-pitched-4tones':
+        return 'pitched-shift-4tones' 
+    elif dataset_augmented=='test-clean-pitched-8tones':
+        return 'pitched-shift-8tones' 
+    else:
+        return dataset_augmented
 
 """if __name__ == "__main__":
 
@@ -75,7 +79,7 @@ def get_store_name(dataset_augmented):
 
 if __name__ == "__main__":
     for k in [50, 100, 200]:
-        for dataset_augmented_name in ["test-clean-pitch_shift_resample"]:
+        for dataset_augmented_name in ["test-clean-lowpass_filter"]:
         #for dataset_augmented_name in ["test-clean-reverb", "test-clean-stretched", "test-clean-pitched", "test-clean-noisy"]:
         #for dataset_augmented_name in ["test-clean-stretched-hard", "test-clean-pitched-hard", "test-clean-noisy-hard"]:
             device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
