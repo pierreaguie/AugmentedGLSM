@@ -39,21 +39,26 @@ class Quantizer(pl.LightningModule):
     
 
     def training_step(self, batch, batch_idx):
-        x_aug, units = batch
+        units, x_aug, lengths = batch
         units_aug = self(x_aug)
-        loss = F.ctc_loss(units, units_aug)
+        print(units.shape, units_aug.shape, x_aug.shape)
+        loss = F.ctc_loss(units * mask, units_aug * mask)
         result = pl.TrainResult(loss)
         self.log('train_loss', loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
         return result
     
     def validation_step(self, batch, batch_idx):
-        x_aug, units = batch
+        units, x_aug, lengths = batch
+        bs = units.shape[0]
         units_aug = self(x_aug)
-        loss = F.ctc_loss(units, units_aug)
+
+        print(units.shape, units_aug.shape, x_aug.shape)
+
+        loss = F.ctc_loss(units_aug.view(-1, bs, self.n_clusters), units)
         result = pl.EvalResult(checkpoint_on=loss)
         self.log('val_loss', loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
 
-        ued = self.UED(units, units_aug)
+        ued = self.UED(units * mask, units_aug * mask)
         self.log('val_ued', ued, on_step=True, on_epoch=True, prog_bar=True, logger=True)
         return result
 
