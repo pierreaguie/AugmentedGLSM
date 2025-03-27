@@ -4,6 +4,7 @@ import os
 import librosa
 
 import torchaudio.transforms as T
+import scipy.signal as signal
 import numpy as np
 import pyroomacoustics as pra
 import random
@@ -96,22 +97,29 @@ def add_reverb(waveform: torch.Tensor, sample_rate: int = 4) -> torch.Tensor:
 
     return torch.tensor(audio_modified, dtype=torch.float32).unsqueeze(0) #shape (1, x)
 
-def clip_waveform(waveform, clip_level=0.5):
+def clip_waveform(waveform, clip_level=0.2):
     """Clips the waveform up to clip_level*max(waveform)"""
     max_val = torch.max(torch.abs(waveform))
     return torch.clamp(waveform, min=-clip_level*max_val, max=clip_level*max_val)
 
 
-def save_transformed_dataset(folder_path="LibriSpeech/test-clean", transforms=['stretched', 'pitched', 'reverb', 'noisy'], hard_augment=False, custom_name=None):
+def lowpass_filter(waveform, sample_rate, cutoff_freq=3000, filter_order=6):
+    nyquist = sample_rate / 2
+    b, a = signal.butter(filter_order, cutoff_freq / nyquist, btype='low', analog=False)
+    filtered_waveform = signal.filtfilt(b, a, waveform.numpy())
+    return torch.tensor(filtered_waveform.copy(), dtype=waveform.dtype)
+
+def save_transformed_dataset(folder_path="LibriSpeech/test-clean", transforms=['stretched', 'pitched', 'reverb', 'noisy'], hard_augment=False, custom_name=None, n_samples=None):
     dataset = AudioDataset(folder_path)
 
     transformations = {
-        "stretched": lambda waveform, sample_rate: time_stretch(waveform, sample_rate, hard_augment),
-        "pitched": lambda waveform, sample_rate: pitch_shift(waveform, sample_rate, hard_augment),
+        "stretched": lambda waveform, sample_rate: time_stretch(waveform, sample_rate, hard_augment=hard_augment),
+        "pitched": lambda waveform, sample_rate: pitch_shift(waveform, sample_rate, hard_augment=hard_augment, n_steps=4),
         "reverb": lambda waveform, sample_rate: add_reverb(waveform, sample_rate),
         "noisy": lambda waveform, sample_rate: add_noise(waveform),
         "clip_sound": lambda waveform, sample_rate : clip_waveform(waveform),
-        "pitch_shift_resample": lambda waveform, sample_rate : pitch_shift_resample(waveform, sample_rate, hard_augment)
+        "pitch_shift_resample": lambda waveform, sample_rate : pitch_shift_resample(waveform, sample_rate, hard_augment),
+        "lowpass_filter": lambda waveform, sample_rate : lowpass_filter(waveform, sample_rate)
     }
 
     transformations = {key: transformations[key] for key in transforms if key in transformations}
@@ -122,6 +130,8 @@ def save_transformed_dataset(folder_path="LibriSpeech/test-clean", transforms=['
             os.makedirs(output_dir)
 
         for idx, (waveform, sample_rate) in tqdm(enumerate(dataset)):
+            if n_samples is not None and idx>=n_samples:
+                break
             file_path = dataset.file_paths[idx]
             parts = file_path.split(os.sep)
             parts[1] = f'test-clean-{transfo_name}{custom_name}' if custom_name else f'test-clean-{transfo_name}'
@@ -138,4 +148,4 @@ def save_transformed_dataset(folder_path="LibriSpeech/test-clean", transforms=['
 
 
 if __name__ == "__main__":
-    save_transformed_dataset(transforms=['time_stretch_resample'], hard_augment=False, custom_name=None)
+    save_transformed_dataset(transforms=['lowpass_filter'], hard_augment=False, custom_name=None, n_samples=500)
