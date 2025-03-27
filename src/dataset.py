@@ -1,5 +1,6 @@
 import torch
 from torch.utils.data import Dataset, TensorDataset
+import torch.nn.functional as F
 
 from textless.data.collater_utils import collate_tensors
 from textless.data.speech_encoder import SpeechEncoder
@@ -19,6 +20,25 @@ class AugmentedDataset(Dataset):
 
     def __getitem__(self, idx):
         return self.units[idx], self.dense[idx]
+    
+
+def collate_fn(batch):
+
+    lengths = [batch[i][0].shape[0] for i in range(len(batch))]
+    max_len = max(lengths)
+    units = [batch[i][0] for i in range(len(batch))]
+    dense = [batch[i][1] for i in range(len(batch))]
+
+    for i in range(len(batch)):
+        units[i] = F.pad(units[i], (0, max_len - units[i].shape[0]), "constant", -1)
+        dense[i] = F.pad(dense[i], (0, 0, 0, max_len - dense[i].shape[0]), "constant", 0)
+
+    units = torch.stack(units)
+    dense = torch.stack(dense)
+    lengths = torch.tensor(lengths, dtype=int)
+
+    return units, dense, lengths
+
 
 
 @torch.no_grad()
