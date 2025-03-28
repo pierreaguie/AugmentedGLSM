@@ -22,22 +22,24 @@ class AugmentedDataset(Dataset):
         return self.units[idx], self.dense[idx]
     
 
+
 def collate_fn(batch):
 
-    lengths = [batch[i][0].shape[0] for i in range(len(batch))]
-    max_len = max(lengths)
-    units = [batch[i][0] for i in range(len(batch))]
+    lengths_units = [batch[i][0].shape[0] for i in range(len(batch))]
+    lengths_dense = [batch[i][1].shape[0] for i in range(len(batch))]
+
+    units = torch.cat([batch[i][0] for i in range(len(batch))], dim = 0) + 1
+
+    max_len_dense = max(lengths_dense)
     dense = [batch[i][1] for i in range(len(batch))]
-
     for i in range(len(batch)):
-        units[i] = F.pad(units[i], (0, max_len - units[i].shape[0]), "constant", -1)
-        dense[i] = F.pad(dense[i], (0, 0, 0, max_len - dense[i].shape[0]), "constant", 0)
-
-    units = torch.stack(units)
+        dense[i] = F.pad(dense[i], (0, 0, 0, max_len_dense - dense[i].shape[0]), "constant", 0)
     dense = torch.stack(dense)
-    lengths = torch.tensor(lengths, dtype=int)
 
-    return units, dense, lengths
+    lengths_units = torch.tensor(lengths_units)
+    lengths_dense = torch.tensor(lengths_dense)
+
+    return units, dense, lengths_units, lengths_dense
 
 
 

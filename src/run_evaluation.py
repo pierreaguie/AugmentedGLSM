@@ -75,11 +75,11 @@ def get_store_name(dataset_augmented):
 
 if __name__ == "__main__":
     for k in [50, 100, 200]:
-        for dataset_augmented_name in ["test-clean-pitch_shift_resample"]:
+        for dataset_augmented_name in ["test-clean-reverb"]:
         #for dataset_augmented_name in ["test-clean-reverb", "test-clean-stretched", "test-clean-pitched", "test-clean-noisy"]:
         #for dataset_augmented_name in ["test-clean-stretched-hard", "test-clean-pitched-hard", "test-clean-noisy-hard"]:
             device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-            encoder = SpeechEncoder.by_name(dense_model_name=args.encoder, quantizer_model_name="kmeans", vocab_size=k, deduplicate=False, need_f0=False).to(device)
+            encoder = SpeechEncoder.by_name(dense_model_name=args.encoder, quantizer_model_name="kmeans", vocab_size=k, deduplicate=True, need_f0=False).to(device)
             encoder.eval()
 
             dataset_file = os.path.join(args.dataset_root, args.dataset_ref)

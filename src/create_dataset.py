@@ -7,6 +7,11 @@ from torchaudio.transforms import Resample, PitchShift, AddNoise, TimeStretch
 import torchaudio.functional as F
 
 from dataset import augment_dataset
+from transform import add_reverb, add_noise
+
+from functools import partial
+
+import os
 
 
 parser = ArgumentParser()
@@ -53,7 +58,7 @@ args = parser.parse_args()
 if __name__ == "__main__":
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    encoder = SpeechEncoder.by_name(dense_model_name=args.encoder, quantizer_model_name="kmeans", vocab_size=args.k, deduplicate=False, need_f0=False).to(device)
+    encoder = SpeechEncoder.by_name(dense_model_name=args.encoder, quantizer_model_name="kmeans", vocab_size=args.k, deduplicate=True, need_f0=False).to(device)
     encoder.eval()
     dataset = LIBRISPEECH(root=args.dataset_root, url=args.split)
 
@@ -64,8 +69,11 @@ if __name__ == "__main__":
         raise ValueError("Invalid augmentation")
 
     if args.save_root:
+        if not(os.path.exists(f"{args.save_root}")):
+            os.makedirs(f"{args.save_root}")
         save_path = f"{args.save_root}/{args.split}_{args.encoder}_{args.k}_{args.augmentation}_{args.augment_parameter}.pt"
     else:
         save_path = None
+        
     augmented_dataset = augment_dataset(dataset = dataset, encoder = encoder, augmentation = augmentation, path = save_path)
     print(f"Augmented dataset saved at {save_path}.")

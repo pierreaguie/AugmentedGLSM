@@ -24,13 +24,13 @@ def save_audio(waveform, sample_rate, file_path):
 
 #Transforms
 
-def time_stretch(waveform, sample_rate, low_rate=0.8, high_rate=1.2, n_fft=512, hard_augment=False):
+def time_stretch(waveform, sample_rate, low_rate=0.8, high_rate=1.2, n_fft=512, hard_augment=False, device = "cpu"):
     if hard_augment:
         rate = random.choice([low_rate, high_rate])
     else:
         rate = torch.FloatTensor(1).uniform_(low_rate, high_rate).item()
     stft_transform = torch.stft(waveform, n_fft=n_fft, hop_length=n_fft // 2, return_complex=True)
-    transform = T.TimeStretch(n_freq=n_fft//2+1)
+    transform = T.TimeStretch(n_freq=n_fft//2+1).to(device)
     stretched_stft = transform(stft_transform, rate)
     waveform_stretched = torch.istft(stretched_stft, n_fft=n_fft, hop_length=n_fft // 2)
     
@@ -48,12 +48,12 @@ def pitch_shift_resample(waveform, sample_rate, low_rate=0.8, high_rate=1.2, har
 
     return waveform_stretched
 
-def pitch_shift(waveform, sample_rate, n_steps=4, hard_augment=False):
+def pitch_shift(waveform, sample_rate, n_steps=4, hard_augment=False, device = "cpu"):
     if hard_augment:
         n_steps = random.choice([-n_steps, n_steps])
     else:
         n_steps = random.choice([i for i in range(-n_steps, n_steps + 1) if i != 0]) #exclude 0 steps pitch shift (no shift)
-    transform = T.PitchShift(sample_rate, n_steps, n_fft=128)
+    transform = T.PitchShift(sample_rate, n_steps, n_fft=512).to(device)
     return transform(waveform)
 
 """def add_noise(waveform, noise_level=0.005):
@@ -61,11 +61,11 @@ def pitch_shift(waveform, sample_rate, n_steps=4, hard_augment=False):
     return waveform + noise
 """
 
-def add_noise(waveform, snr_db_range=(5, 15)):
+def add_noise(waveform, snr_db_range=(5, 15), device = "cpu"):
     signal_power = torch.mean(waveform ** 2)
     snr_db = torch.FloatTensor(1).uniform_(*snr_db_range).item()
     noise_power = signal_power / (10 ** (snr_db / 10))
-    noise = torch.randn_like(waveform) * torch.sqrt(noise_power)
+    noise = torch.randn_like(waveform, device=device) * torch.sqrt(noise_power)
     
     return waveform + noise
 
@@ -102,6 +102,10 @@ def clip_waveform(waveform, clip_level=0.5):
     return torch.clamp(waveform, min=-clip_level*max_val, max=clip_level*max_val)
 
 
+def lowpass_filter(waveform, sample_rate, cutoff_freq=4000):
+    return torchaudio.functional.lowpass_biquad(waveform, sample_rate=sample_rate, cutoff_freq=cutoff_freq)
+
+
 def save_transformed_dataset(folder_path="LibriSpeech/test-clean", transforms=['stretched', 'pitched', 'reverb', 'noisy'], hard_augment=False, custom_name=None):
     dataset = AudioDataset(folder_path)
 
@@ -124,7 +128,7 @@ def save_transformed_dataset(folder_path="LibriSpeech/test-clean", transforms=['
         for idx, (waveform, sample_rate) in tqdm(enumerate(dataset)):
             file_path = dataset.file_paths[idx]
             parts = file_path.split(os.sep)
-            parts[1] = f'test-clean-{transfo_name}{custom_name}' if custom_name else f'test-clean-{transfo_name}'
+            parts[3] = f'test-clean-{transfo_name}{custom_name}' if custom_name else f'test-clean-{transfo_name}'
             output_file_path = os.sep.join(parts)
             output_folder = os.sep.join(parts[:-1])
             if not os.path.exists(output_folder):
@@ -138,4 +142,4 @@ def save_transformed_dataset(folder_path="LibriSpeech/test-clean", transforms=['
 
 
 if __name__ == "__main__":
-    save_transformed_dataset(transforms=['time_stretch_resample'], hard_augment=False, custom_name=None)
+    save_transformed_dataset(transforms=['pitched'], hard_augment=False, custom_name=None, folder_path="/Data/LibriSpeech/test-clean")
