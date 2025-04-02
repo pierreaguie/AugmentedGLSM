@@ -4,8 +4,13 @@ from textless.data.speech_encoder import SpeechEncoder
 import torch
 import os
 
-from metrics import unit_edit_distance_from_two_datasets
+from metrics import unit_edit_distance_from_two_datasets, unit_edit_distance_from_two_datasets_mlpquant
 from dataloader import AudioDataset
+from quantizer import Quantizer
+from dataset import AugmentedDataset, augment_dataset
+from train_quantizer import get_augmentation
+
+from torchaudio.datasets import LIBRISPEECH
 
 
 parser = ArgumentParser()
@@ -13,7 +18,7 @@ parser = ArgumentParser()
 parser.add_argument("--dataset_root",
                     type = str,
                     help = "The path to the folder containing the LibriSpeech directory.",
-                    default="LibriSpeech")
+                    default="/Data/LibriSpeech")
 
 parser.add_argument("--dataset_ref",
                     type = str,
@@ -74,19 +79,39 @@ def get_store_name(dataset_augmented):
 
 
 if __name__ == "__main__":
-    for k in [50, 100, 200]:
-        for dataset_augmented_name in ["test-clean-reverb"]:
-        #for dataset_augmented_name in ["test-clean-reverb", "test-clean-stretched", "test-clean-pitched", "test-clean-noisy"]:
-        #for dataset_augmented_name in ["test-clean-stretched-hard", "test-clean-pitched-hard", "test-clean-noisy-hard"]:
-            device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-            encoder = SpeechEncoder.by_name(dense_model_name=args.encoder, quantizer_model_name="kmeans", vocab_size=k, deduplicate=True, need_f0=False).to(device)
-            encoder.eval()
+    torch.serialization.add_safe_globals([AugmentedDataset])
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-            dataset_file = os.path.join(args.dataset_root, args.dataset_ref)
-            dataset_augmented_file = os.path.join(args.dataset_root, dataset_augmented_name)
-            dataset = AudioDataset(dataset_file)
-            dataset_augmented = AudioDataset(dataset_augmented_file)
+    k = 100
+    augmentation = "time_stretch"
+    param = "default"
 
-            os.makedirs("results", exist_ok=True)
-            store_file = os.path.join("results", get_store_name(dataset_augmented_name) + "_" + args.encoder + f"_{k}clusters" + "_results.txt")
-            unit_edit_distance_from_two_datasets(dataset, dataset_augmented, encoder, store_file=store_file , verbose=True)
+    dataset_augmented_name = f"test-clean-{augmentation}"
+
+    dataset_path = f"/Data/AugGLSMDatasets/test-clean_hubert-base-ls960_100_{augmentation}_{param}.pt"
+    if os.path.exists(dataset_path):
+        augmented_dataset = torch.load(dataset_path)
+        augmented_dataset = [augmented_dataset[i] for i in range(100)]
+    else:
+        librispeech = LIBRISPEECH(root="/Data", url="test-clean")
+        librispeech = [librispeech[i] for i in range(100)]
+        encoder = SpeechEncoder.by_name(dense_model_name="hubert-base-ls960", quantizer_model_name="kmeans", vocab_size=100, deduplicate=True, need_f0=False).to(device)
+        augment_fn = get_augmentation(augmentation, param)
+        augmented_dataset = augment_dataset(librispeech, encoder, augment_fn, dataset_path)
+
+    
+
+
+    quantizer = Quantizer(latent_dim=768, hidden_dims=[256, 256], n_clusters=k)
+    checkpoint_path = f"lightning_logs/train-clean-100_hubert-base-ls960_{k}_{augmentation}_{param}_new"
+    checkpoint_file = os.listdir(checkpoint_path)[1]
+    checkpoint = torch.load(os.path.join(checkpoint_path, checkpoint_file))
+    quantizer.load_state_dict(checkpoint['state_dict'])
+    quantizer.to(device)
+    quantizer.eval()
+
+
+    os.makedirs("results", exist_ok=True)
+    dataset_augmented_name = f"train-clean-100_hubert-base-ls960_100_{augmentation}_{param}"
+    store_file = os.path.join("results", dataset_augmented_name + "_results.txt")
+    unit_edit_distance_from_two_datasets_mlpquant(augmented_dataset, quantizer, store_file=store_file , verbose=True)

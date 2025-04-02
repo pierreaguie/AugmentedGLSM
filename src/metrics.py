@@ -3,6 +3,8 @@ import torch.nn.functional as F
 from Levenshtein import distance as levenshtein_distance
 from tqdm import tqdm
 
+from torchaudio.functional import edit_distance
+
 from transform import add_noise, add_reverb, pitch_shift, time_stretch
 
 
@@ -72,10 +74,12 @@ def unit_edit_distance_from_two_datasets(dataset, dataset_augmented, encoder_qua
                 encoded_x = encoder_quantizer(x)
 
                 units = encoded_x["units"]
+                print(units.shape)
 
                 encoded_augmented_x = encoder_quantizer(augmented_x)
 
                 units_augmented = encoded_augmented_x["units"]
+                print(units_augmented.shape)
 
                 # Compute Levenshtein distance
                 lev_dist = levenshtein_distance(units.tolist(), units_augmented.tolist())
@@ -91,6 +95,44 @@ def unit_edit_distance_from_two_datasets(dataset, dataset_augmented, encoder_qua
         if verbose:
             if i%20==0:
                 print('current ued : ', total_ued/total_frames)
+    
+    # Write the current UED to a .txt file
+    with open(f"{store_file}", "w") as file:
+        file.write(f"Current UED: {total_ued / total_frames if total_frames > 0 else 0.0}\n")
+    
+    return total_ued / total_frames if total_frames > 0 else 0.0
+
+
+def unit_edit_distance_from_two_datasets_mlpquant(augmented_dataset, quantizer, store_file, verbose=False):
+
+    total_ued = 0.0
+    total_frames = 0
+    n = len(augmented_dataset)
+    device = quantizer.device
+    
+    for i in tqdm(range(n)):
+
+        units, dense = augmented_dataset[i]
+        units = units.to(device)
+        dense = dense.to(device)
+        
+        units_augmented = quantizer(dense)
+        units = (units + 1)
+
+        units_augmented = units_augmented.argmax(dim=-1)
+        units_augmented = units_augmented[units_augmented != 0]
+        units_augmented = torch.unique_consecutive(units_augmented, return_counts=False)
+
+        ued = levenshtein_distance(units.tolist(), units_augmented.tolist())
+        T_prime_x = len(units)
+        total_ued += ued / T_prime_x
+        total_frames += 1
+
+
+        if verbose:
+            if i%20==0:
+                print('current ued : ', total_ued/total_frames)
+        
     
     # Write the current UED to a .txt file
     with open(f"{store_file}", "w") as file:

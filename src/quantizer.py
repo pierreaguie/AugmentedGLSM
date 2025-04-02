@@ -35,13 +35,12 @@ class Quantizer(pl.LightningModule):
             x = layer(x)
         x = self.logsoftmax(x)
         return x
-    
 
     def training_step(self, batch, batch_idx):
         units, x_aug, lengths_units, lengths_dense = batch
         bs = x_aug.shape[0]
         units_aug = self(x_aug)
-        log_probs = units_aug.view(-1, bs, self.n_clusters + 1)
+        log_probs = units_aug.transpose(0, 1)
         loss = F.ctc_loss(log_probs=log_probs, targets=units, input_lengths=lengths_dense, target_lengths=lengths_units)
         self.log('train_loss', loss, on_step=True, on_epoch=True, prog_bar=True, logger=True, batch_size=bs)
         return loss
@@ -51,7 +50,7 @@ class Quantizer(pl.LightningModule):
         units, x_aug, lengths_units, lengths_dense = batch
         bs = x_aug.shape[0]
         units_aug = self(x_aug)
-        log_probs = units_aug.view(-1, bs, self.n_clusters + 1)
+        log_probs = units_aug.transpose(0, 1)
         loss = F.ctc_loss(log_probs=log_probs, targets=units, input_lengths=lengths_dense, target_lengths=lengths_units)
         self.log('val_loss', loss, on_step=True, on_epoch=True, prog_bar=True, logger=True, batch_size=bs)
         return loss

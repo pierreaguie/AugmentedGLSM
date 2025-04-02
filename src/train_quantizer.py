@@ -12,7 +12,7 @@ from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.loggers import TensorBoardLogger
 
-from dataset import augment_dataset, collate_fn
+from dataset import augment_dataset, collate_fn, AugmentedDataset
 
 from argparse import ArgumentParser
 
@@ -21,6 +21,8 @@ from functools import partial
 from torchaudio.datasets import LIBRISPEECH
 from textless.data.speech_encoder import SpeechEncoder
 from transform import pitch_shift, time_stretch, add_reverb, add_noise, clip_waveform, lowpass_filter
+
+import os
 
 parser = ArgumentParser()
 
@@ -62,17 +64,17 @@ parser.add_argument("--save_root",
 parser.add_argument("--batch_size",
                     type = int,
                     help = "The batch size for training the quantizer.",
-                    default=64)
+                    default=32)
 
 parser.add_argument("--max_epochs",
                     type = int,
                     help = "The maximum number of epochs for training the quantizer.",
-                    default=50)
+                    default=20)
 
 parser.add_argument("--lr",
                     type = float,
                     help = "The learning rate for training the quantizer.",
-                    default=1e-3)
+                    default=1e-4)
 
 
 def get_augmentation(augmentation, augment_parameter):
@@ -118,6 +120,8 @@ def get_augmentation(augmentation, augment_parameter):
 
 
 if __name__ == "__main__":
+    torch.serialization.add_safe_globals([AugmentedDataset])
+
 
     args = parser.parse_args()
 
@@ -128,19 +132,22 @@ if __name__ == "__main__":
     librispeech = LIBRISPEECH(root=args.dataset_root, url=args.split)
     augmentation = get_augmentation(args.augmentation, args.augment_parameter)
     dataset_save_path = f"{args.save_root}/{args.split}_{args.encoder}_{args.k}_{args.augmentation}_{args.augment_parameter}.pt"
-    dataset = augment_dataset(librispeech, encoder, augmentation, dataset_save_path)
+    if os.path.exists(dataset_save_path):
+        dataset = torch.load(dataset_save_path)
+    else:
+        dataset = augment_dataset(librispeech, encoder, augmentation, dataset_save_path)
 
     train_set, val_set = torch.utils.data.random_split(dataset, [int(0.8*len(dataset)), len(dataset) - int(0.8*len(dataset))])
 
     latent_dim = 768
 
-    quantizer = Quantizer(latent_dim=latent_dim, hidden_dims=[512, 256], n_clusters=args.k, lr = args.lr).to(device)
+    quantizer = Quantizer(latent_dim=latent_dim, hidden_dims=[256, 256], n_clusters=args.k, lr = args.lr).to(device)
 
     train_loader = DataLoader(dataset=train_set, batch_size=args.batch_size, shuffle=True, collate_fn=collate_fn)
     val_loader = DataLoader(dataset=val_set, batch_size=args.batch_size, shuffle=False, collate_fn=collate_fn)
 
-    log_path = f"lightning_logs/{args.split}_{args.encoder}_{args.k}_{args.augmentation}_{args.augment_parameter}"
-    logger = TensorBoardLogger("lightning_logs", name=f"{args.split}_{args.encoder}_{args.k}_{args.augmentation}_{args.augment_parameter}")
+    log_path = f"lightning_logs/{args.split}_{args.encoder}_{args.k}_{args.augmentation}_{args.augment_parameter}_new"
+    logger = TensorBoardLogger("lightning_logs", name=f"{args.split}_{args.encoder}_{args.k}_{args.augmentation}_{args.augment_parameter}_new")
     checkpoint_callback = ModelCheckpoint(monitor='val_loss', dirpath=log_path, filename='quantizer-{epoch:02d}-{val_loss:.2f}', save_top_k=1, mode='min')
 
     trainer = Trainer(max_epochs=args.max_epochs, logger=logger, callbacks=[checkpoint_callback])
