@@ -11,6 +11,7 @@ from CPC_loader import load_cpc_features, build_feature_from_file, FeatureModule
 from pathlib import Path
 from textless.data.speech_encoder import SpeechEncoder
 
+from quantizer import Quantizer
 
 
 def find_all_files(path_dir, extension):
@@ -49,7 +50,7 @@ def ABX(feature_function,
         max_size_group=30):
 
     # ABX dataset
-    if distance_mode=='levenshtein':
+    if distance_mode=='levenshtein' or distance_mode == 'one_hot_distance':
         ABXDataset = abx_it.ABXFeatureLoader(path_item_file, seq_list,
                                          feature_function, step_feature, False)
     else:
@@ -142,7 +143,7 @@ def parse_args(argv):
                         choices=['all', 'within', 'across'],
                         help="Choose the mode of the ABX score to compute")
     parser.add_argument('--distance_mode', type=str, default='cosine',
-                        choices=['euclidian', 'cosine', 'kl', 'kl_symmetric', 'levenshtein'],
+                        choices=['euclidian', 'cosine', 'kl', 'kl_symmetric', 'levenshtein', 'one_hot_distance'],
                         help="Choose the kind of distance to use to compute "
                         "the ABX score.")
     parser.add_argument("--max_size_group", type=int, default=10,
@@ -184,6 +185,23 @@ def main(argv):
                 need_f0=False
             )
             feature_maker = FeatureModule(model, False, is_hubert=True, seq_norm=False)
+
+        elif args.custom_model == 'hubert_quantizer':
+            model = SpeechEncoder.by_name(
+                dense_model_name=dense_model_name,
+                quantizer_model_name=quantizer_name,
+                vocab_size=vocab_size,
+                deduplicate=False,
+                need_f0=False
+            )
+            quantizer = Quantizer(latent_dim=768, hidden_dims=[256, 256], n_clusters=k)
+            #checkpoint_path = f"lightning_logs/train-clean-100_hubert-base-ls960_{k}_{augmentation}_{param}_new"
+            checkpoint_path = f"quantizer-epoch=19-val_loss=0.93.ckpt"
+            checkpoint_file = os.listdir(checkpoint_path)[1]
+            checkpoint = torch.load(os.path.join(checkpoint_path, checkpoint_file))
+            quantizer.load_state_dict(checkpoint['state_dict'])
+            feature_maker = FeatureModule(model, False, is_hubert=True, seq_norm=False, quantizer=quantizer)
+
         else:
             state_dict = torch.load(args.path_checkpoint)
             feature_maker = load_cpc_features(state_dict)

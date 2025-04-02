@@ -18,6 +18,8 @@ def get_distance_function_from_name(name_str):
         return get_kl_distance_symmetric_batch
     if name_str == 'levenshtein':
         return get_levenshtein_distance
+    if name_str == 'one_hot_distance':
+        return get_one_hot_distance_batch
     raise ValueError(f"Invalid distance mode")
 
 
@@ -58,6 +60,19 @@ def get_cosine_distance_batch(a1, a2, epsilon=1e-8):
     prod = (a1.view(N1, 1, S1, 1, D)) * (a2.view(1, N2, 1, S2, D))
     # Sum accross the channel dimension
     prod = torch.clamp(prod.sum(dim=4), -1, 1).acos() / math.pi
+
+    return prod
+
+
+def get_one_hot_distance_batch(a1, a2, epsilon=1e-8):
+    r""" a1 and a2 must be normalized"""
+    N1, S1, D = a1.size()  # Batch x Seq x 1
+    N2, S2, D = a2.size()  # Batch x Seq x 1
+
+    prod = (a1.view(N1, 1, S1, 1, D)) != (a2.view(1, N2, 1, S2, D))
+    prod = prod.squeeze(4)
+    prod = prod.float()
+    #print(prod)
 
     return prod
 

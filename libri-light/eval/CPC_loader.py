@@ -5,6 +5,8 @@ import torchaudio
 import torch.nn as nn
 import torch.nn.functional as F
 
+from quantizer import Quantizer
+
 
 def download_state_dict(model_name):
 
@@ -201,13 +203,14 @@ class FeatureModule(torch.nn.Module):
     """
 
     def __init__(self, featureMaker, get_encoded,
-                 seq_norm=True, is_hubert=False):
+                 seq_norm=True, is_hubert=False, quantizer=None):
         super(FeatureModule, self).__init__()
         self.get_encoded = get_encoded
         self.model = featureMaker
         self.seq_norm = seq_norm
         self.config = None
         self.is_hubert = is_hubert
+        self.quantizer = quantizer
 
     def forward(self, batch_data):
         # Input Size : BatchSize x 1 x SeqSize
@@ -215,7 +218,18 @@ class FeatureModule(torch.nn.Module):
         if self.is_cuda:
             batch_data = batch_data.cuda()
         if self.is_hubert:
-            cFeature= self.model(batch_data, None)['units'].unsqueeze(0).unsqueeze(2)
+            if self.quantizer is not None:
+                dense = self.model(batch_data, None)['dense']
+                units_augmented = self.quantizer(dense)
+
+                units_augmented = units_augmented.argmax(dim=-1)
+                units_augmented = units_augmented[units_augmented != 0]
+                units_augmented = torch.unique_consecutive(units_augmented, return_counts=False).unsqueeze(0).unsqueeze(2)
+                cFeature = units_augmented
+                print(cFeature.shape)
+            else:
+                cFeature= self.model(batch_data, None)['units'].unsqueeze(0).unsqueeze(2)
+                print(cFeature.shape)
             #print(cFeature.shape)
         else:
             cFeature, encoded, _ = self.model(batch_data, None)
