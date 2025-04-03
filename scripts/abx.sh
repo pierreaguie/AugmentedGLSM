@@ -1,0 +1,2 @@
+python libri-light/eval/eval_ABX.py /Data/LibriSpeech/ ABX_data/test-clean.item --file_extension .flac --feature_size 0.02 --out results_ABX --custom_model hubert_quantizer --path_checkpoint hubert_quantizer --distance_mode one_hot_distance
+python libri-light/eval/eval_ABX.py /Data/LibriSpeech/ ABX_data/test-clean.item --file_extension .flac --feature_size 0.02 --out results_ABX --custom_model hubert --path_checkpoint hubert --distance_mode one_hot_distance

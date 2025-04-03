@@ -69,7 +69,7 @@ parser.add_argument("--batch_size",
 parser.add_argument("--max_epochs",
                     type = int,
                     help = "The maximum number of epochs for training the quantizer.",
-                    default=20)
+                    default=100)
 
 parser.add_argument("--lr",
                     type = float,
@@ -146,8 +146,8 @@ if __name__ == "__main__":
     train_loader = DataLoader(dataset=train_set, batch_size=args.batch_size, shuffle=True, collate_fn=collate_fn)
     val_loader = DataLoader(dataset=val_set, batch_size=args.batch_size, shuffle=False, collate_fn=collate_fn)
 
-    log_path = f"lightning_logs/{args.split}_{args.encoder}_{args.k}_{args.augmentation}_{args.augment_parameter}_new"
-    logger = TensorBoardLogger("lightning_logs", name=f"{args.split}_{args.encoder}_{args.k}_{args.augmentation}_{args.augment_parameter}_new")
+    log_path = f"lightning_logs/{args.split}_{args.encoder}_{args.k}_{args.augmentation}_{args.augment_parameter}_long"
+    logger = TensorBoardLogger("lightning_logs", name=f"{args.split}_{args.encoder}_{args.k}_{args.augmentation}_{args.augment_parameter}_long")
     checkpoint_callback = ModelCheckpoint(monitor='val_loss', dirpath=log_path, filename='quantizer-{epoch:02d}-{val_loss:.2f}', save_top_k=1, mode='min')
 
     trainer = Trainer(max_epochs=args.max_epochs, logger=logger, callbacks=[checkpoint_callback])

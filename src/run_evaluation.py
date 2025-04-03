@@ -83,7 +83,7 @@ if __name__ == "__main__":
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     k = 100
-    augmentation = "time_stretch"
+    augmentation = "lowpass"
     param = "default"
 
     dataset_augmented_name = f"test-clean-{augmentation}"

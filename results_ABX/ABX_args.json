@@ -1,0 +1,14 @@
+{
+  "path_data": "/Data/LibriSpeech/",
+  "path_item_file": "ABX_data/dev-clean.item",
+  "path_checkpoint": "hubert_quantizer",
+  "file_extension": ".flac",
+  "feature_size": 0.02,
+  "cuda": false,
+  "mode": "all",
+  "distance_mode": "one_hot_distance",
+  "max_size_group": 10,
+  "max_x_across": 5,
+  "out": "results_ABX",
+  "custom_model": "hubert_quantizer"
+}
